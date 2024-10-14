@@ -135,12 +135,16 @@ const getPageUrl = (url: string) => {
 const send = (payload: any) => {
     const url = `${config.ingestHost}/v1/e`;
     if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            keepalive: true,
-        });
+        try {
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                keepalive: true,
+            });
+        } catch (e) {
+            console.error(e);
+        }
     }
 };
 
@@ -177,7 +181,7 @@ const normalizeUrl = (url: string) => {
         return url.slice(0, -1);
     }
     return url;
-}
+};
 
 const registerPageChangeListeners = () => {
     if (!isBrowser) return;
