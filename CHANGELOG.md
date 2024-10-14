@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.0.3
+
+### Patch Changes
+
+- 851937c: fix bug where url was being sent under metadata.url instead of url on pushState
+
 ## 1.0.2
 
 ### Patch Changes
