@@ -64,7 +64,9 @@ export const init = (params: Config) => {
   }
 
   if (config.autoPageView) {
-    page();
+    track('$page_view', {
+      page_title: document.title,
+    });
     registerPageChangeListeners();
   }
 };
@@ -109,7 +111,7 @@ export const page = () => {
   lastPage = window.location.pathname;
 
   track('$page_view', {
-    page_title: document.title,
+    page_title: window.document.title,
   });
 };
 
