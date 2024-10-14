@@ -222,7 +222,7 @@ const registerPageChangeListeners = () => {
     if (urlBeforePush !== urlAfterPush) {
       const t = setTimeout(() => {
         const payload = {
-          name: name,
+          name: '$page_view',
           website_id: config.websiteId,
           page_url: getPageUrl(url.toString()),
           host_name: window.location.hostname,
