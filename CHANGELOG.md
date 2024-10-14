@@ -4,16 +4,16 @@
 
 ### Patch Changes
 
-- 851937c: fix bug where url was being sent under metadata.url instead of url on pushState
+-   851937c: fix bug where url was being sent under metadata.url instead of url on pushState
 
 ## 1.0.2
 
 ### Patch Changes
 
-- 78980df: track page views at least once on init to make sure non-spa page views are tracked
+-   78980df: track page views at least once on init to make sure non-spa page views are tracked
 
 ## 1.0.1
 
 ### Patch Changes
 
-- 8313444: Initial release
+-   8313444: Initial release
