@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.0.2
+
+### Patch Changes
+
+- 78980df: track page views at least once on init to make sure non-spa page views are tracked
+
 ## 1.0.1
 
 ### Patch Changes
