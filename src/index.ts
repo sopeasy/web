@@ -79,8 +79,6 @@ export const init = (params: Config) => {
  * ```
  */
 export const track = (name: string, metadata?: Record<string, any>) => {
-  const url = `${config.ingestHost}/v1/e`;
-
   if (!initialized) {
     beforeInitializationQueue.push({ name, metadata });
     return;
@@ -89,7 +87,7 @@ export const track = (name: string, metadata?: Record<string, any>) => {
   const payload = {
     name: name,
     website_id: config.websiteId,
-    page_url: getPageUrl(),
+    page_url: getPageUrl(window.location.href),
     host_name: window.location.hostname,
     referrer: !window.document.referrer.includes(location.hostname)
       ? window.document.referrer
@@ -99,14 +97,7 @@ export const track = (name: string, metadata?: Record<string, any>) => {
     metadata: metadata ?? {},
   };
 
-  if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    });
-  }
+  send(payload);
 };
 
 let lastPage: string | null = null;
@@ -122,21 +113,33 @@ export const page = () => {
   });
 };
 
-const getPageUrl = () => {
-  let url = new URL(location.href);
+const getPageUrl = (url: string) => {
+  let _url = new URL(url);
 
   if (config.maskPatterns && config.maskPatterns.length > 0) {
     for (const mask of config.maskPatterns) {
-      const maskedPathname = maskPathname(mask, url.pathname);
+      const maskedPathname = maskPathname(mask, _url.pathname);
 
-      if (maskedPathname !== url.pathname) {
-        url.pathname = maskedPathname;
+      if (maskedPathname !== _url.pathname) {
+        _url.pathname = maskedPathname;
         break;
       }
     }
   }
 
-  return url.href;
+  return _url.href;
+};
+
+const send = (payload: any) => {
+  const url = `${config.ingestHost}/v1/e`;
+  if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  }
 };
 
 const maskPathname = (maskPattern: string, pathname: string) => {
@@ -186,15 +189,25 @@ const registerPageChangeListeners = () => {
   const handlePush = (state: any, title: string, url: string) => {
     if (!url) return;
 
-    const urlBeforePush = getPageUrl();
+    const urlBeforePush = window.location.href;
     const urlAfterPush = url.toString();
 
     if (urlBeforePush !== urlAfterPush) {
       const t = setTimeout(() => {
-        track('$page_view', {
-          title: title,
-          url: urlAfterPush,
-        });
+        const payload = {
+          name: name,
+          website_id: config.websiteId,
+          page_url: getPageUrl(urlAfterPush),
+          host_name: window.location.hostname,
+          referrer: !window.document.referrer.includes(location.hostname)
+            ? window.document.referrer
+            : null,
+          lang: window.navigator.language,
+          screen: `${window.screen.width}x${window.screen.height}`,
+          metadata: { title },
+        };
+
+        send(payload);
         clearTimeout(t);
       }, 100);
     }
