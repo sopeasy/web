@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.1.0
+
+### Minor Changes
+
+-   fd10ad4: add setVisitorProfile function which allows visitors to be branded with more custom data
+
 ## 1.0.3
 
 ### Patch Changes
