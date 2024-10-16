@@ -81,19 +81,19 @@ export const init = (params: Config) => {
 
     initialized = true;
 
+    if (config.autoPageView) {
+        track('$page_view', {
+            page_title: document.title,
+        });
+        registerPageChangeListeners();
+    }
+
     for (const { type, object } of beforeInitializationQueue) {
         if (type === 'track') {
             track(object.name, object.metadata);
         } else if (type === 'set_visitor_profile') {
             setVisitorProfile(object.profile_id, object.profile);
         }
-    }
-
-    if (config.autoPageView) {
-        track('$page_view', {
-            page_title: document.title,
-        });
-        registerPageChangeListeners();
     }
 };
 
@@ -193,17 +193,17 @@ const getPageUrl = (url: string) => {
 
 const send = (path: string, payload: any) => {
     const url = `${config.ingestHost}${path}`;
-    if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
-        try {
+    try {
+        if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
             fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
                 keepalive: true,
             });
-        } catch (e) {
-            console.error(e);
         }
+    } catch (e) {
+        console.error(e);
     }
 };
 
