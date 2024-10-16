@@ -48,10 +48,22 @@ let config: Config = {
 };
 const isBrowser = typeof window !== 'undefined';
 let initialized = false;
-let beforeInitializationQueue: {
-    name: string;
-    metadata?: Record<string, any>;
-}[] = [];
+let beforeInitializationQueue: (
+    | {
+          type: 'track';
+          object: {
+              name: string;
+              metadata?: Record<string, any>;
+          };
+      }
+    | {
+          type: 'set_visitor_profile';
+          object: {
+              profile_id: string;
+              profile: Record<string, any>;
+          };
+      }
+)[] = [];
 
 /**
  * 'init' initializes Peasy.
@@ -69,8 +81,12 @@ export const init = (params: Config) => {
 
     initialized = true;
 
-    for (const { name, metadata } of beforeInitializationQueue) {
-        track(name, metadata);
+    for (const { type, object } of beforeInitializationQueue) {
+        if (type === 'track') {
+            track(object.name, object.metadata);
+        } else if (type === 'set_visitor_profile') {
+            setVisitorProfile(object.profile_id, object.profile);
+        }
     }
 
     if (config.autoPageView) {
@@ -92,7 +108,10 @@ export const init = (params: Config) => {
  */
 export const track = (name: string, metadata?: Record<string, any>) => {
     if (!initialized) {
-        beforeInitializationQueue.push({ name, metadata });
+        beforeInitializationQueue.push({
+            type: 'track',
+            object: { name, metadata },
+        });
         return;
     }
 
@@ -109,7 +128,7 @@ export const track = (name: string, metadata?: Record<string, any>) => {
         metadata: metadata ?? {},
     };
 
-    send(payload);
+    send('/v1/e', payload);
 };
 
 let lastPage: string | null = null;
@@ -123,6 +142,36 @@ export const page = () => {
     track('$page_view', {
         page_title: window.document.title,
     });
+};
+
+/**
+ * 'setVisitorProfile' is for setting visitor profile.
+ *
+ * example usage:
+ *
+ * ```javascript
+ * peasy.setVisitorProfile("123", { name: "John Doe", email: "john@doe.com" });
+ * ```
+ */
+export const setVisitorProfile = (
+    profile_id: string,
+    profile: Record<string, any>,
+) => {
+    if (!initialized) {
+        beforeInitializationQueue.push({
+            type: 'set_visitor_profile',
+            object: { profile_id, profile },
+        });
+        return;
+    }
+
+    const payload = {
+        website_id: config.websiteId,
+        profile_id,
+        profile,
+    };
+
+    send('/v1/p', payload);
 };
 
 const getPageUrl = (url: string) => {
@@ -142,8 +191,8 @@ const getPageUrl = (url: string) => {
     return _url.href;
 };
 
-const send = (payload: any) => {
-    const url = `${config.ingestHost}/v1/e`;
+const send = (path: string, payload: any) => {
+    const url = `${config.ingestHost}${path}`;
     if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
         try {
             fetch(url, {
@@ -236,7 +285,7 @@ const registerPageChangeListeners = () => {
                     metadata: { title },
                 };
 
-                send(payload);
+                send('/v1/e', payload);
                 clearTimeout(t);
             }, 100);
         }
