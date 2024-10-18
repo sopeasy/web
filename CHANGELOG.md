@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.1.1
+
+### Patch Changes
+
+-   edd73f7: add proper error handling to ensure failures that occure while sending events dont take down dependents
+
 ## 1.1.0
 
 ### Minor Changes
