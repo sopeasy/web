@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.2.0
+
+### Minor Changes
+
+-   3077191: removed setVisitorProfile functionality over privacy concerns
+
 ## 1.1.1
 
 ### Patch Changes
