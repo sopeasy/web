@@ -48,22 +48,10 @@ let config: Config = {
 };
 const isBrowser = typeof window !== 'undefined';
 let initialized = false;
-let beforeInitializationQueue: (
-    | {
-          type: 'track';
-          object: {
-              name: string;
-              metadata?: Record<string, any>;
-          };
-      }
-    | {
-          type: 'set_visitor_profile';
-          object: {
-              profile_id: string;
-              profile: Record<string, any>;
-          };
-      }
-)[] = [];
+let beforeInitializationQueue: {
+    name: string;
+    metadata?: Record<string, any>;
+}[] = [];
 
 /**
  * 'init' initializes Peasy.
@@ -88,12 +76,8 @@ export const init = (params: Config) => {
         registerPageChangeListeners();
     }
 
-    for (const { type, object } of beforeInitializationQueue) {
-        if (type === 'track') {
-            track(object.name, object.metadata);
-        } else if (type === 'set_visitor_profile') {
-            setVisitorProfile(object.profile_id, object.profile);
-        }
+    for (const { name, metadata } of beforeInitializationQueue) {
+        track(name, metadata);
     }
 };
 
@@ -108,10 +92,7 @@ export const init = (params: Config) => {
  */
 export const track = (name: string, metadata?: Record<string, any>) => {
     if (!initialized) {
-        beforeInitializationQueue.push({
-            type: 'track',
-            object: { name, metadata },
-        });
+        beforeInitializationQueue.push({ name, metadata });
         return;
     }
 
@@ -142,36 +123,6 @@ export const page = () => {
     track('$page_view', {
         page_title: window.document.title,
     });
-};
-
-/**
- * 'setVisitorProfile' is for setting visitor profile.
- *
- * example usage:
- *
- * ```javascript
- * peasy.setVisitorProfile("123", { name: "John Doe", email: "john@doe.com" });
- * ```
- */
-export const setVisitorProfile = (
-    profile_id: string,
-    profile: Record<string, any>,
-) => {
-    if (!initialized) {
-        beforeInitializationQueue.push({
-            type: 'set_visitor_profile',
-            object: { profile_id, profile },
-        });
-        return;
-    }
-
-    const payload = {
-        website_id: config.websiteId,
-        profile_id,
-        profile,
-    };
-
-    send('/v1/p', payload);
 };
 
 const getPageUrl = (url: string) => {
