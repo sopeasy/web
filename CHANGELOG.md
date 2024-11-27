@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.3.1
+
+### Patch Changes
+
+- c6dae9b: fix default config not being set properly
+
 ## 1.3.0
 
 ### Minor Changes
