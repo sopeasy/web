@@ -65,11 +65,11 @@ let lastPage: string | null = null;
 export const init = (params: Config) => {
     if (!isBrowser || initialized) return;
 
-    config.ingestUrl = params.ingestUrl ?? 'https://api.peasy.so/v1/ingest/';
+    config.ingestUrl = params.ingestUrl || 'https://api.peasy.so/v1/ingest/';
     config.websiteId = params.websiteId;
-    config.maskPatterns = params.maskPatterns;
-    config.autoPageView = params.autoPageView;
-    config.ignoreQueryParams = params.ignoreQueryParams;
+    config.maskPatterns = params.maskPatterns || [];
+    config.autoPageView = params.autoPageView ?? true;
+    config.ignoreQueryParams = params.ignoreQueryParams ?? false;
 
     initialized = true;
 
