@@ -1,17 +1,20 @@
+const POST_EVENT_PATH = 'e';
+const isBrowser = typeof window !== 'undefined';
+
 export type Config = {
     /**
-     * 'websiteId' is a unique identifier for your website. You can find it in the Peasy dashboard.
+     * 'websiteId' is a unique identifier for your website. You can find it in your Peasy dashboard.
      *
      * required
      */
     websiteId: string;
 
     /**
-     * 'ingestHost' is the Peasy ingest host.
+     * 'ingestUrl' is the Peasy ingest host.
      *
      * optional
      */
-    ingestHost?: string;
+    ingestUrl?: string;
 
     /**
      * 'maskPatterns' is an array of patterns that you want to mask tracking.
@@ -35,23 +38,24 @@ export type Config = {
      * 'ignoreQueryParams' is a boolean value that determines whether to ignore query params when tracking page views.
      *
      * optional
-     * default: true
+     * default: false
      * */
     ignoreQueryParams?: boolean;
 };
 
 let config: Config = {
     websiteId: '',
-    ingestHost: 'https://ingest.peasy.so',
+    ingestUrl: '',
     maskPatterns: [],
     autoPageView: true,
+    ignoreQueryParams: false,
 };
-const isBrowser = typeof window !== 'undefined';
 let initialized = false;
 let beforeInitializationQueue: {
     name: string;
     metadata?: Record<string, any>;
 }[] = [];
+let lastPage: string | null = null;
 
 /**
  * 'init' initializes Peasy.
@@ -61,19 +65,17 @@ let beforeInitializationQueue: {
 export const init = (params: Config) => {
     if (!isBrowser || initialized) return;
 
+    config.ingestUrl = params.ingestUrl ?? 'https://api.peasy.so/v1/ingest/';
     config.websiteId = params.websiteId;
-    config.ingestHost = params.ingestHost ?? 'https://ingest.peasy.so';
-    config.maskPatterns = params.maskPatterns ?? [];
-    config.autoPageView = params.autoPageView ?? true;
-    config.ignoreQueryParams = params.ignoreQueryParams ?? true;
+    config.maskPatterns = params.maskPatterns;
+    config.autoPageView = params.autoPageView;
+    config.ignoreQueryParams = params.ignoreQueryParams;
 
     initialized = true;
 
     if (config.autoPageView) {
-        track('$page_view', {
-            page_title: document.title,
-        });
-        registerPageChangeListeners();
+        page();
+        _registerPageChangeListeners();
     }
 
     for (const { name, metadata } of beforeInitializationQueue) {
@@ -95,24 +97,19 @@ export const track = (name: string, metadata?: Record<string, any>) => {
         beforeInitializationQueue.push({ name, metadata });
         return;
     }
-
     const payload = {
         name: name,
         website_id: config.websiteId,
-        page_url: getPageUrl(window.location.href),
+        page_url: _processUrl(window.location.href),
         host_name: window.location.hostname,
-        referrer: !window.document.referrer.includes(location.hostname)
-            ? window.document.referrer
-            : null,
+        referrer: _getReferrer(),
         lang: window.navigator.language,
         screen: `${window.screen.width}x${window.screen.height}`,
         metadata: metadata ?? {},
     };
-
-    send('/v1/e', payload);
+    _send(POST_EVENT_PATH, payload);
 };
 
-let lastPage: string | null = null;
 /**
  * 'page' is for manually tracking page views when 'config.autoPageView' is set to false.
  */
@@ -125,52 +122,25 @@ export const page = () => {
     });
 };
 
-const getPageUrl = (url: string) => {
-    let _url = new URL(url);
-
-    if (config.maskPatterns && config.maskPatterns.length > 0) {
-        for (const mask of config.maskPatterns) {
-            const maskedPathname = maskPathname(mask, _url.pathname);
-
-            if (maskedPathname !== _url.pathname) {
-                _url.pathname = maskedPathname;
-                break;
-            }
+const _maskPathname = (maskPattern: string, pathname: string) => {
+    const maskSegments = (() => {
+        if (maskPattern.endsWith('/')) {
+            return maskPattern.slice(0, -1);
         }
-    }
-
-    return _url.href;
-};
-
-const send = (path: string, payload: any) => {
-    const url = `${config.ingestHost}${path}`;
-    try {
-        if (!navigator?.sendBeacon(url, JSON.stringify(payload))) {
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                keepalive: true,
-            });
+        return maskPattern;
+    })().split('/');
+    const pathSegments = (() => {
+        if (pathname.endsWith('/')) {
+            return pathname.slice(0, -1);
         }
-    } catch (e) {
-        console.error(e);
-    }
-};
-
-const maskPathname = (maskPattern: string, pathname: string) => {
-    const maskSegments = normalizeUrl(maskPattern).split('/');
-    const pathSegments = normalizeUrl(pathname).split('/');
-
+        return pathname;
+    })().split('/');
     if (pathSegments.length > maskSegments.length) {
         return pathname;
     }
-
     const maskedSegments = [];
-
     for (let i = 0; i < maskSegments.length; i++) {
         const maskSegment = maskSegments[i];
-
         if (maskSegment === '*') {
             maskedSegments.push('*');
         } else {
@@ -181,71 +151,81 @@ const maskPathname = (maskPattern: string, pathname: string) => {
             }
         }
     }
-
     const maskedPath = maskedSegments.join('/');
     return maskedPath;
 };
-
-const normalizeUrl = (url: string) => {
-    if (url.endsWith('/')) {
-        return url.slice(0, -1);
+const _processUrl = (url: string) => {
+    let _url = new URL(url);
+    if (config.maskPatterns && config.maskPatterns.length > 0) {
+        for (const mask of config.maskPatterns) {
+            const maskedPathname = _maskPathname(mask, _url.pathname);
+            if (maskedPathname !== _url.pathname) {
+                _url.pathname = maskedPathname;
+                break;
+            }
+        }
     }
-    return url;
+    if (config.ignoreQueryParams) {
+        _url.search = '';
+    }
+    return _url.href;
 };
-
-const registerPageChangeListeners = () => {
+const _send = (path: string, payload: any) => {
+    try {
+        const url = new URL(path, config.ingestUrl!).href;
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true,
+        });
+    } catch (e) {
+        console.error('[peasy.js]: failed to send event', e);
+    }
+};
+const _registerPageChangeListeners = () => {
     if (!isBrowser) return;
-
     const hook = (
         _this: History,
         method: 'pushState' | 'replaceState',
         callback: (state: History['state'], title: string, url: string) => void,
     ) => {
         const orig = _this[method];
-
         return (...args: any) => {
             callback.apply(null, args);
             return orig.apply(_this, args);
         };
     };
-
-    const handlePush = (state: any, title: string, url: string | URL) => {
+    const handlePush = (_: any, title: string, url: string | URL) => {
         if (!url) return;
-
-        const urlBeforePush = config.ignoreQueryParams
-            ? window.location.pathname
-            : window.location.href;
-        const urlAfterPush = config.ignoreQueryParams
-            ? new URL(url).pathname.toString()
-            : url.toString();
-
+        const urlBeforePush = window.location.href;
+        const urlAfterPush = url.toString();
         if (urlBeforePush !== urlAfterPush) {
             const t = setTimeout(() => {
                 const payload = {
                     name: '$page_view',
                     website_id: config.websiteId,
-                    page_url: getPageUrl(url.toString()),
+                    page_url: _processUrl(url.toString()),
                     host_name: window.location.hostname,
-                    referrer: !window.document.referrer.includes(
-                        location.hostname,
-                    )
-                        ? window.document.referrer
-                        : null,
+                    referrer: _getReferrer(),
                     lang: window.navigator.language,
                     screen: `${window.screen.width}x${window.screen.height}`,
                     metadata: { title },
                 };
-
-                send('/v1/e', payload);
+                _send(POST_EVENT_PATH, payload);
                 clearTimeout(t);
             }, 100);
         }
     };
-
     window.history.pushState = hook(window.history, 'pushState', handlePush);
     window.history.replaceState = hook(
         window.history,
         'replaceState',
         handlePush,
     );
+};
+const _getReferrer = () => {
+    return !window.document.referrer.includes(window.location.hostname)
+        ? window.document.referrer
+        : '';
 };
