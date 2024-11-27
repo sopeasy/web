@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.3.0
+
+### Minor Changes
+
+-   d6e03a8: refactor library code to be more readable, change ingestHost -> ingestUrl and set new default ingestUrl in accordance to api changes
+
 ## 1.2.0
 
 ### Minor Changes
