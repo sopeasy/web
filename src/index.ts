@@ -66,6 +66,9 @@ export const init = (params: Config) => {
     if (!isBrowser || initialized) return;
 
     config.ingestUrl = params.ingestUrl || 'https://api.peasy.so/v1/ingest/';
+    if (!config.ingestUrl.endsWith('/')) {
+        config.ingestUrl += '/';
+    }
     config.websiteId = params.websiteId;
     config.maskPatterns = params.maskPatterns || [];
     config.autoPageView = params.autoPageView ?? true;
