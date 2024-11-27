@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.3.2
+
+### Patch Changes
+
+- a3809ae: fix events not being sent due to a bug in ingestUrl and event path joining
+
 ## 1.3.1
 
 ### Patch Changes
