@@ -99,10 +99,10 @@ peasy.init({
 
 ## Privacy Features
 
--   No cookies or local storage usage
--   URL masking capabilities
--   Query parameter filtering
--   Privacy-first design
+- No cookies or local storage usage
+- URL masking capabilities
+- Query parameter filtering
+- Privacy-first design
 
 ## License
 
