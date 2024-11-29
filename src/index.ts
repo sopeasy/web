@@ -125,38 +125,35 @@ export const page = () => {
     });
 };
 
-const _maskPathname = (maskPattern: string, pathname: string) => {
-    const maskSegments = (() => {
-        if (maskPattern.endsWith('/')) {
-            return maskPattern.slice(0, -1);
-        }
-        return maskPattern;
-    })().split('/');
-    const pathSegments = (() => {
-        if (pathname.endsWith('/')) {
-            return pathname.slice(0, -1);
-        }
-        return pathname;
-    })().split('/');
+const _maskPathname = (maskPattern: string, pathname: string): string => {
+    const normalizePath = (path: string) =>
+        path.endsWith('/') ? path.slice(0, -1).split('/') : path.split('/');
+
+    const maskSegments = normalizePath(maskPattern);
+    const pathSegments = normalizePath(pathname);
+
     if (pathSegments.length > maskSegments.length) {
         return pathname;
     }
-    const maskedSegments = [];
+
+    const maskedSegments: string[] = [];
+
     for (let i = 0; i < maskSegments.length; i++) {
         const maskSegment = maskSegments[i];
+        const pathSegment = pathSegments[i];
+
         if (maskSegment === '*') {
+            if (pathSegment === undefined) break;
             maskedSegments.push('*');
+        } else if (pathSegment !== undefined && maskSegment === pathSegment) {
+            maskedSegments.push(pathSegment);
         } else {
-            if (pathSegments[i] !== undefined) {
-                maskedSegments.push(pathSegments[i]);
-            } else {
-                maskedSegments.push('');
-            }
+            return pathname;
         }
     }
-    const maskedPath = maskedSegments.join('/');
-    return maskedPath;
+    return maskedSegments.join('/');
 };
+
 const _processUrl = (url: string) => {
     let _url = new URL(url);
     if (config.maskPatterns && config.maskPatterns.length > 0) {
