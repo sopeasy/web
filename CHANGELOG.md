@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.4.0
+
+### Minor Changes
+
+- ea411ba: fix masking function masking urls that dont match the mask
+
 ## 1.3.2
 
 ### Patch Changes
