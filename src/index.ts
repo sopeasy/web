@@ -1,5 +1,7 @@
 const POST_EVENT_PATH = 'e';
 const POST_PROFILE_PATH = 'p';
+const PATCH_PROFILE_PATH = 'p';
+
 const isBrowser = typeof window !== 'undefined';
 
 export type Config = {
@@ -54,15 +56,15 @@ let config: Config = {
 let initialized = false;
 let preInitQueue: (
     | {
-          type: 'track';
-          name: string;
-          metadata?: Record<string, any>;
-      }
+        type: 'track';
+        name: string;
+        metadata?: Record<string, any>;
+    }
     | {
-          type: 'set-profile';
-          profileId: string;
-          profile: Record<string, any>;
-      }
+        type: 'set-profile' | 'update-profile';
+        profileId: string;
+        profile: Record<string, any>;
+    }
 )[] = [];
 let lastPage: string | null = null;
 
@@ -91,11 +93,16 @@ export const init = (params: Config) => {
     }
 
     for (const i of preInitQueue) {
-        if (i.type === 'track') {
-            track(i.name, i.metadata);
-        }
-        if (i.type === 'set-profile') {
-            setProfile(i.profileId, i.profile);
+        switch (i.type) {
+            case 'track':
+                track(i.name, i.metadata);
+                break;
+            case 'set-profile':
+                setProfile(i.profileId, i.profile);
+                break;
+            case 'update-profile':
+                updateProfile(i.profileId, i.profile);
+                break;
         }
     }
 };
@@ -161,6 +168,38 @@ export const setProfile = (
 };
 
 /**
+ * 'updateProfile' is for updating a user profile.
+ *
+ * Example usage:
+ *
+ * ```javascript
+ * peasy.updateProfile("123", { $name: "Johnathan Doe", $avatar: "https://example.com/avatar-new.png" });
+ * ```
+ * This method will update the included fields in the patch object and will leave the rest as is. If there
+ * are any new fields, they will be added to the profile.
+ */
+export const updateProfile = (
+    profileId: string,
+    patch: {
+        $name?: string;
+        $avatar?: string;
+    } & Record<string, any>,
+) => {
+    if (!initialized) {
+        preInitQueue.push({ type: 'update-profile', profileId, profile: patch });
+        return;
+    }
+
+    const payload = {
+        website_id: config.websiteId,
+        host_name: window.location.hostname,
+        profile_id: profileId,
+        profile: patch,
+    };
+    _send(PATCH_PROFILE_PATH, payload, 'PATCH');
+};
+
+/**
  * 'page' is for manually tracking page views when 'config.autoPageView' is set to false.
  */
 export const page = () => {
@@ -217,11 +256,15 @@ const _processUrl = (url: string) => {
     }
     return _url.href;
 };
-const _send = (path: string, payload: any) => {
+const _send = (
+    path: string,
+    payload: any,
+    method: 'POST' | 'PATCH' = 'PATCH',
+) => {
     try {
         const url = new URL(path, config.ingestUrl!).href;
         fetch(url, {
-            method: 'POST',
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             keepalive: true,
