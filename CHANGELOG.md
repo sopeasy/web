@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.6.1
+
+### Patch Changes
+
+- 15ee73c: set a persistent visitorId when setProfile is used so stats arent messed up by salted hash
+
 ## 1.6.0
 
 ### Minor Changes
