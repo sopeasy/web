@@ -2,6 +2,8 @@ const POST_EVENT_PATH = 'e';
 const POST_PROFILE_PATH = 'p';
 const PATCH_PROFILE_PATH = 'p';
 
+const VISITOR_ID_LOCALSTORAGE_KEY = 'peasy-visitor-id';
+
 const isBrowser = typeof window !== 'undefined';
 
 export type Config = {
@@ -269,9 +271,18 @@ const _send = (
         const url = new URL(path, config.ingestUrl!).href;
         fetch(url, {
             method: method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Visitor-ID':
+                    localStorage.getItem(VISITOR_ID_LOCALSTORAGE_KEY) ?? '',
+            },
             body: JSON.stringify(payload),
             keepalive: true,
+        }).then((r) => {
+            const visitorId = r.headers.get('X-Visitor-ID');
+            if (visitorId) {
+                localStorage.setItem(VISITOR_ID_LOCALSTORAGE_KEY, visitorId);
+            }
         });
     } catch (e) {
         console.error('[peasy.js]: failed to send event', e);
