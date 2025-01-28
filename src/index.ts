@@ -6,6 +6,8 @@ const VISITOR_ID_LOCALSTORAGE_KEY = 'peasy-visitor-id';
 
 const isBrowser = typeof window !== 'undefined';
 
+type Primitive = string | number | boolean | null | undefined;
+
 export type Config = {
     /**
      * 'websiteId' is a unique identifier for your website. You can find it in your Peasy dashboard.
@@ -60,12 +62,12 @@ let preInitQueue: (
     | {
           type: 'track';
           name: string;
-          metadata?: Record<string, any>;
+          metadata?: Record<string, Primitive>;
       }
     | {
           type: 'set-profile' | 'update-profile';
           profileId: string;
-          profile: Record<string, any>;
+          profile: Record<string, Primitive>;
       }
 )[] = [];
 let lastPage: string | null = null;
@@ -118,7 +120,7 @@ export const init = (params: Config) => {
  * peasy.track("order_created", { order_id: 123, total: 100 });
  * ```
  */
-export const track = (name: string, metadata?: Record<string, any>) => {
+export const track = (name: string, metadata?: Record<string, Primitive>) => {
     if (!initialized) {
         preInitQueue.push({ type: 'track', name, metadata });
         return;
@@ -153,7 +155,7 @@ export const setProfile = (
     profile: {
         $name?: string;
         $avatar?: string;
-    } & Record<string, any>,
+    } & Record<string, Primitive>,
 ) => {
     if (!initialized) {
         preInitQueue.push({ type: 'set-profile', profileId, profile });
@@ -185,7 +187,7 @@ export const updateProfile = (
     patch: {
         $name?: string;
         $avatar?: string;
-    } & Record<string, any>,
+    } & Record<string, Primitive>,
 ) => {
     if (!initialized) {
         preInitQueue.push({
