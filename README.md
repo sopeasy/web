@@ -85,7 +85,7 @@ peasy.track('purchase_completed', {
 
 ### User Profile Management
 
-Set or update user profiles to enrich your analytics data:
+Set user profiles to enrich your analytics data:
 
 ```javascript
 // Set a new user profile
@@ -94,12 +94,6 @@ peasy.setProfile('user123', {
     $avatar: 'https://example.com/avatar.png',
     age: 30,
     plan: 'premium',
-});
-
-// Update an existing profile
-peasy.updateProfile('user123', {
-    plan: 'enterprise',
-    lastLogin: Date.now(),
 });
 ```
 
