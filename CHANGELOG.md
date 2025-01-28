@@ -1,5 +1,15 @@
 # @sopeasy/web
 
+## 1.7.0
+
+### Minor Changes
+
+- 3cf71e8: merge setVisitorProfile and updateVisitorProfile functionality into just setVisitorProfile
+
+### Patch Changes
+
+- e8535fa: change metadata type from Record<string,any> to Record<string,Primitive>
+
 ## 1.6.1
 
 ### Patch Changes
