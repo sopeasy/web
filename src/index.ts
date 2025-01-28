@@ -224,15 +224,11 @@ const _processUrl = (url: string) => {
     }
     return _url.href;
 };
-const _send = (
-    path: string,
-    payload: any,
-    method: 'POST' | 'PATCH' = 'PATCH',
-) => {
+const _send = (path: string, payload: any) => {
     try {
         const url = new URL(path, config.ingestUrl!).href;
         fetch(url, {
-            method: method,
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Visitor-ID':
