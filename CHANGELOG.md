@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.6.0
+
+### Minor Changes
+
+- 2bfb546: Add updateProfile method to allow editing of existing profiles
+
 ## 1.5.0
 
 ### Minor Changes
