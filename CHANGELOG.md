@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.5.0
+
+### Minor Changes
+
+- 6c63da3: add setProfile method to allow for setting visitor profile data that will appear in dashboard
+
 ## 1.4.0
 
 ### Minor Changes
