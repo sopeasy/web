@@ -1,4 +1,5 @@
 const POST_EVENT_PATH = 'e';
+const POST_PROFILE_PATH = 'p';
 const isBrowser = typeof window !== 'undefined';
 
 export type Config = {
@@ -51,10 +52,18 @@ let config: Config = {
     ignoreQueryParams: false,
 };
 let initialized = false;
-let beforeInitializationQueue: {
-    name: string;
-    metadata?: Record<string, any>;
-}[] = [];
+let preInitQueue: (
+    | {
+          type: 'track';
+          name: string;
+          metadata?: Record<string, any>;
+      }
+    | {
+          type: 'set-profile';
+          profileId: string;
+          profile: Record<string, any>;
+      }
+)[] = [];
 let lastPage: string | null = null;
 
 /**
@@ -81,8 +90,13 @@ export const init = (params: Config) => {
         _registerPageChangeListeners();
     }
 
-    for (const { name, metadata } of beforeInitializationQueue) {
-        track(name, metadata);
+    for (const i of preInitQueue) {
+        if (i.type === 'track') {
+            track(i.name, i.metadata);
+        }
+        if (i.type === 'set-profile') {
+            setProfile(i.profileId, i.profile);
+        }
     }
 };
 
@@ -97,7 +111,7 @@ export const init = (params: Config) => {
  */
 export const track = (name: string, metadata?: Record<string, any>) => {
     if (!initialized) {
-        beforeInitializationQueue.push({ name, metadata });
+        preInitQueue.push({ type: 'track', name, metadata });
         return;
     }
     const payload = {
@@ -111,6 +125,39 @@ export const track = (name: string, metadata?: Record<string, any>) => {
         metadata: metadata ?? {},
     };
     _send(POST_EVENT_PATH, payload);
+};
+
+/**
+ * 'setProfile' is for setting user profile.
+ *
+ * example usage:
+ *
+ * ```javascript
+ * peasy.setProfile("123", { $name: "John Doe", $avatar: "https://example.com/avatar.png", age: 30 });
+ * ```
+ *
+ * note: '$name' and '$avatar' are reserved keys for name and avatar and can be set to
+ * show the user's name and avatar in the Peasy dashboard.
+ */
+export const setProfile = (
+    profileId: string,
+    profile: {
+        $name?: string;
+        $avatar?: string;
+    } & Record<string, any>,
+) => {
+    if (!initialized) {
+        preInitQueue.push({ type: 'set-profile', profileId, profile });
+        return;
+    }
+
+    const payload = {
+        website_id: config.websiteId,
+        host_name: window.location.hostname,
+        profile_id: profileId,
+        profile: profile,
+    };
+    _send(POST_PROFILE_PATH, payload);
 };
 
 /**
