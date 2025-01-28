@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.7.1
+
+### Patch Changes
+
+- 6d2da9c: fix issue with requests being sent as PATCH, not POST
+
 ## 1.7.0
 
 ### Minor Changes
