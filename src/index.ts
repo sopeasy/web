@@ -56,15 +56,15 @@ let config: Config = {
 let initialized = false;
 let preInitQueue: (
     | {
-        type: 'track';
-        name: string;
-        metadata?: Record<string, any>;
-    }
+          type: 'track';
+          name: string;
+          metadata?: Record<string, any>;
+      }
     | {
-        type: 'set-profile' | 'update-profile';
-        profileId: string;
-        profile: Record<string, any>;
-    }
+          type: 'set-profile' | 'update-profile';
+          profileId: string;
+          profile: Record<string, any>;
+      }
 )[] = [];
 let lastPage: string | null = null;
 
@@ -186,7 +186,11 @@ export const updateProfile = (
     } & Record<string, any>,
 ) => {
     if (!initialized) {
-        preInitQueue.push({ type: 'update-profile', profileId, profile: patch });
+        preInitQueue.push({
+            type: 'update-profile',
+            profileId,
+            profile: patch,
+        });
         return;
     }
 
