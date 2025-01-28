@@ -1,6 +1,5 @@
 const POST_EVENT_PATH = 'e';
 const POST_PROFILE_PATH = 'p';
-const PATCH_PROFILE_PATH = 'p';
 
 const VISITOR_ID_LOCALSTORAGE_KEY = 'peasy-visitor-id';
 
@@ -65,7 +64,7 @@ let preInitQueue: (
           metadata?: Record<string, Primitive>;
       }
     | {
-          type: 'set-profile' | 'update-profile';
+          type: 'set-profile';
           profileId: string;
           profile: Record<string, Primitive>;
       }
@@ -103,9 +102,6 @@ export const init = (params: Config) => {
                 break;
             case 'set-profile':
                 setProfile(i.profileId, i.profile);
-                break;
-            case 'update-profile':
-                updateProfile(i.profileId, i.profile);
                 break;
         }
     }
@@ -169,42 +165,6 @@ export const setProfile = (
         profile: profile,
     };
     _send(POST_PROFILE_PATH, payload);
-};
-
-/**
- * 'updateProfile' is for updating a user profile.
- *
- * Example usage:
- *
- * ```javascript
- * peasy.updateProfile("123", { $name: "Johnathan Doe", $avatar: "https://example.com/avatar-new.png" });
- * ```
- * This method will update the included fields in the patch object and will leave the rest as is. If there
- * are any new fields, they will be added to the profile.
- */
-export const updateProfile = (
-    profileId: string,
-    patch: {
-        $name?: string;
-        $avatar?: string;
-    } & Record<string, Primitive>,
-) => {
-    if (!initialized) {
-        preInitQueue.push({
-            type: 'update-profile',
-            profileId,
-            profile: patch,
-        });
-        return;
-    }
-
-    const payload = {
-        website_id: config.websiteId,
-        host_name: window.location.hostname,
-        profile_id: profileId,
-        profile: patch,
-    };
-    _send(PATCH_PROFILE_PATH, payload, 'PATCH');
 };
 
 /**
