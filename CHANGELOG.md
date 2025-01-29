@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 1.7.2
+
+### Patch Changes
+
+- 37e1bee: export LOCALSTORAGE key to allow for more advanced usage in managing locally stored visitor ids. Add config option to disable localstorage visitor ids
+
 ## 1.7.1
 
 ### Patch Changes
