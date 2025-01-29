@@ -1,7 +1,7 @@
 const POST_EVENT_PATH = 'e';
 const POST_PROFILE_PATH = 'p';
 
-const VISITOR_ID_LOCALSTORAGE_KEY = 'peasy-visitor-id';
+export const VISITOR_ID_LOCALSTORAGE_KEY = 'peasy-visitor-id';
 
 const isBrowser = typeof window !== 'undefined';
 

@@ -115,7 +115,7 @@ peasy.init({
 
 ## Privacy Features
 
-- No cookies or local storage usage
+- No cookie usage
 - URL masking capabilities
 - Query parameter filtering
 - Privacy-first design
