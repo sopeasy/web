@@ -47,6 +47,16 @@ export type Config = {
      * default: false
      * */
     ignoreQueryParams?: boolean;
+
+    /**
+     * 'setLocalVisitorId' is a boolean value that determines whether to set a local visitor id when setProfile is set.
+     *
+     * optional
+     * default: true
+     *
+     * note: disabling this may cause issues with visitor tracking.
+     */
+    setLocalVisitorId?: boolean;
 };
 
 let config: Config = {
@@ -55,6 +65,7 @@ let config: Config = {
     maskPatterns: [],
     autoPageView: true,
     ignoreQueryParams: false,
+    setLocalVisitorId: true,
 };
 let initialized = false;
 let preInitQueue: (
@@ -238,7 +249,7 @@ const _send = (path: string, payload: any) => {
             keepalive: true,
         }).then((r) => {
             const visitorId = r.headers.get('X-Visitor-ID');
-            if (visitorId) {
+            if (visitorId && config.setLocalVisitorId) {
                 localStorage.setItem(VISITOR_ID_LOCALSTORAGE_KEY, visitorId);
             }
         });
