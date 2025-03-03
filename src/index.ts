@@ -1,26 +1,15 @@
-const POST_EVENT_PATH = 'e';
-const POST_PROFILE_PATH = 'p';
-
-export const VISITOR_ID_LOCALSTORAGE_KEY = 'peasy-visitor-id';
-
 const isBrowser = typeof window !== 'undefined';
 
-type Primitive = string | number | boolean | null | undefined;
+const PROFILE_ID_LOCALSTORAGE_KEY = 'peasy-profile-id';
+const DO_NOT_TRACK_LOCALSTORAGE_KEY = 'peasy-do-not-track';
 
-export type Config = {
+export type PeasyOptions = {
     /**
-     * 'websiteId' is a unique identifier for your website. You can find it in your Peasy dashboard.
+     * 'websiteId' is a unique identifier for your website. You can find it in your peasy dashboard.
      *
      * required
      */
     websiteId: string;
-
-    /**
-     * 'ingestUrl' is the Peasy ingest host.
-     *
-     * optional
-     */
-    ingestUrl?: string;
 
     /**
      * 'maskPatterns' is an array of patterns that you want to mask tracking.
@@ -32,6 +21,18 @@ export type Config = {
      * optional
      */
     maskPatterns?: string[];
+
+    /**
+     * 'skipPatterns' is an array of pages or page patterns you dont want to track.
+     *
+     * example
+     * ```javascript
+     * ['/admin/*']
+     * ```
+     * optional
+     */
+    skipPatterns?: string[];
+
     /**
      * 'autoPageView' is a boolean value that determines whether to automatically track page views.
      *
@@ -41,43 +42,32 @@ export type Config = {
     autoPageView?: boolean;
 
     /**
-     * 'ignoreQueryParams' is a boolean value that determines whether to ignore query params when tracking page views.
+     * 'ingestUrl' is the peasy ingest url to be used when setting up a [proxy](https://peasy.so/docs/proxying-through-cf-workers).
      *
      * optional
-     * default: false
-     * */
-    ignoreQueryParams?: boolean;
-
-    /**
-     * 'setLocalVisitorId' is a boolean value that determines whether to set a local visitor id when setProfile is set.
-     *
-     * optional
-     * default: true
-     *
-     * note: disabling this may cause issues with visitor tracking.
      */
-    setLocalVisitorId?: boolean;
+    ingestUrl?: string;
 };
 
-let config: Config = {
+let config = {
     websiteId: '',
-    ingestUrl: '',
-    maskPatterns: [],
+    maskPatterns: [] as string[],
+    regexMaskPatterns: [] as RegExp[],
+    skipPatterns: [] as RegExp[],
     autoPageView: true,
-    ignoreQueryParams: false,
-    setLocalVisitorId: true,
+    ingestUrl: '',
 };
 let initialized = false;
 let preInitQueue: (
     | {
           type: 'track';
           name: string;
-          metadata?: Record<string, Primitive>;
+          metadata?: Record<string, unknown>;
       }
     | {
           type: 'set-profile';
-          profileId: string;
-          profile: Record<string, Primitive>;
+          id: string;
+          profile: Record<string, unknown>;
       }
 )[] = [];
 let lastPage: string | null = null;
@@ -87,24 +77,28 @@ let lastPage: string | null = null;
  *
  * note: must be called before any other function.
  */
-export const init = (params: Config) => {
+export const init = (params: PeasyOptions) => {
     if (!isBrowser || initialized) return;
 
-    config.ingestUrl = params.ingestUrl || 'https://api.peasy.so/v1/ingest/';
-    if (!config.ingestUrl.endsWith('/')) {
-        config.ingestUrl += '/';
-    }
     config.websiteId = params.websiteId;
     config.maskPatterns = params.maskPatterns || [];
+    config.regexMaskPatterns =
+        config.maskPatterns?.map((e) => {
+            return new RegExp(`^${_normalizeUrl(e).replace(/\*/g, '[^/]+')}$`);
+        }) ?? [];
+    config.skipPatterns =
+        params.skipPatterns?.map((e) => {
+            return new RegExp(`^${_normalizeUrl(e).replace(/\*/g, '[^/]+')}$`);
+        }) ?? [];
     config.autoPageView = params.autoPageView ?? true;
-    config.ignoreQueryParams = params.ignoreQueryParams ?? false;
+    config.ingestUrl = params.ingestUrl ?? 'https://api.peasy.so/v1/ingest/';
 
     initialized = true;
 
     if (config.autoPageView) {
-        page();
         _registerPageChangeListeners();
     }
+    _registerCustomEventListeners();
 
     for (const i of preInitQueue) {
         switch (i.type) {
@@ -112,7 +106,7 @@ export const init = (params: Config) => {
                 track(i.name, i.metadata);
                 break;
             case 'set-profile':
-                setProfile(i.profileId, i.profile);
+                setProfile(i.id, i.profile);
                 break;
         }
     }
@@ -127,26 +121,35 @@ export const init = (params: Config) => {
  * peasy.track("order_created", { order_id: 123, total: 100 });
  * ```
  */
-export const track = (name: string, metadata?: Record<string, Primitive>) => {
+export function track(event: string, data?: Record<string, unknown>) {
+    if (_isTrackingDisabled()) return;
+
     if (!initialized) {
-        preInitQueue.push({ type: 'track', name, metadata });
+        preInitQueue.push({ type: 'track', name: event, metadata: data });
         return;
     }
+
+    const pageUrl = _processUrl(location.href);
+    if (!pageUrl) {
+        return;
+    }
+
     const payload = {
-        name: name,
+        name: event,
         website_id: config.websiteId,
-        page_url: _processUrl(window.location.href),
-        host_name: window.location.hostname,
+        page_url: pageUrl,
+        host_name: location.hostname,
         referrer: _getReferrer(),
-        lang: window.navigator.language,
-        screen: `${window.screen.width}x${window.screen.height}`,
-        metadata: metadata ?? {},
+        lang: navigator.language,
+        screen: `${screen.width}x${screen.height}`,
+        metadata: data || {},
     };
-    _send(POST_EVENT_PATH, payload);
-};
+
+    _send('e', payload);
+}
 
 /**
- * 'setProfile' is for setting user profile.
+ * 'setProfile' is for setting a user profile to a visitor.
  *
  * example usage:
  *
@@ -155,151 +158,171 @@ export const track = (name: string, metadata?: Record<string, Primitive>) => {
  * ```
  *
  * note: '$name' and '$avatar' are reserved keys for name and avatar and can be set to
- * show the user's name and avatar in the Peasy dashboard.
+ * show the user's name and avatar in the peasy dashboard.
  */
-export const setProfile = (
-    profileId: string,
+export function setProfile(
+    id: string,
     profile: {
         $name?: string;
         $avatar?: string;
-    } & Record<string, Primitive>,
-) => {
+    } & Record<string, unknown>,
+) {
     if (!initialized) {
-        preInitQueue.push({ type: 'set-profile', profileId, profile });
+        preInitQueue.push({ type: 'set-profile', id, profile });
         return;
     }
+
+    localStorage.setItem(PROFILE_ID_LOCALSTORAGE_KEY, id);
 
     const payload = {
         website_id: config.websiteId,
         host_name: window.location.hostname,
-        profile_id: profileId,
+        profile_id: id,
         profile: profile,
     };
-    _send(POST_PROFILE_PATH, payload);
-};
+    _send('p', payload);
+}
 
 /**
  * 'page' is for manually tracking page views when 'config.autoPageView' is set to false.
  */
-export const page = () => {
+export function page() {
     if (lastPage === window.location.pathname) return;
     lastPage = window.location.pathname;
 
     track('$page_view', {
         page_title: window.document.title,
     });
-};
+}
 
-const _maskPathname = (maskPattern: string, pathname: string): string => {
-    const normalizePath = (path: string) =>
-        path.endsWith('/') ? path.slice(0, -1).split('/') : path.split('/');
-
-    const maskSegments = normalizePath(maskPattern);
-    const pathSegments = normalizePath(pathname);
-
-    if (pathSegments.length > maskSegments.length) {
-        return pathname;
+function _normalizeUrl(url: string) {
+    if (url.endsWith('/')) {
+        return url.slice(0, -1);
     }
+    return url;
+}
 
-    const maskedSegments: string[] = [];
-
-    for (let i = 0; i < maskSegments.length; i++) {
-        const maskSegment = maskSegments[i];
-        const pathSegment = pathSegments[i];
-
-        if (maskSegment === '*') {
-            if (pathSegment === undefined) break;
-            maskedSegments.push('*');
-        } else if (pathSegment !== undefined && maskSegment === pathSegment) {
-            maskedSegments.push(pathSegment);
-        } else {
-            return pathname;
-        }
-    }
-    return maskedSegments.join('/');
-};
-
-const _processUrl = (url: string) => {
+function _processUrl(url: string) {
     let _url = new URL(url);
-    if (config.maskPatterns && config.maskPatterns.length > 0) {
-        for (const mask of config.maskPatterns) {
-            const maskedPathname = _maskPathname(mask, _url.pathname);
-            if (maskedPathname !== _url.pathname) {
-                _url.pathname = maskedPathname;
-                break;
-            }
+    let pathname = _url.pathname;
+
+    if (config.skipPatterns.some((regex) => regex.test(pathname))) {
+        return null;
+    }
+
+    for (let i = 0; i < config.regexMaskPatterns.length; i++) {
+        if (config.regexMaskPatterns[i]!.test(pathname)) {
+            return config.maskPatterns[i];
         }
     }
-    if (config.ignoreQueryParams) {
-        _url.search = '';
-    }
-    return _url.href;
-};
-const _send = (path: string, payload: any) => {
+
+    _url.pathname = pathname;
+
+    return _url.toString();
+}
+function _send(path: string, payload: Record<string, unknown>) {
     try {
-        const url = new URL(path, config.ingestUrl!).href;
+        const url = new URL(path, config.ingestUrl).href;
         fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Visitor-ID':
-                    localStorage.getItem(VISITOR_ID_LOCALSTORAGE_KEY) ?? '',
+                'X-Profile-ID':
+                    localStorage.getItem(PROFILE_ID_LOCALSTORAGE_KEY) || '',
             },
             body: JSON.stringify(payload),
             keepalive: true,
         }).then((r) => {
-            const visitorId = r.headers.get('X-Visitor-ID');
-            if (visitorId && config.setLocalVisitorId) {
-                localStorage.setItem(VISITOR_ID_LOCALSTORAGE_KEY, visitorId);
+            const visitorId = r.headers.get('X-Profile-ID');
+            if (visitorId) {
+                localStorage.setItem(PROFILE_ID_LOCALSTORAGE_KEY, visitorId);
             }
         });
     } catch (e) {
-        console.error('[peasy.js]: failed to send event', e);
+        console.error('[peasy.js] Error:', e);
     }
-};
-const _registerPageChangeListeners = () => {
-    if (!isBrowser) return;
-    const hook = (
-        _this: History,
-        method: 'pushState' | 'replaceState',
-        callback: (state: History['state'], title: string, url: string) => void,
-    ) => {
-        const orig = _this[method];
-        return (...args: any) => {
-            callback.apply(null, args);
-            return orig.apply(_this, args);
-        };
+}
+
+function _registerPageChangeListeners() {
+    const originalPushState = history.pushState;
+    history.pushState = function (...args) {
+        originalPushState.apply(history, args);
+        page();
     };
-    const handlePush = (_: any, title: string, url: string | URL) => {
-        if (!url) return;
-        const urlBeforePush = window.location.href;
-        const urlAfterPush = url.toString();
-        if (urlBeforePush !== urlAfterPush) {
-            const t = setTimeout(() => {
-                const payload = {
-                    name: '$page_view',
-                    website_id: config.websiteId,
-                    page_url: _processUrl(url.toString()),
-                    host_name: window.location.hostname,
-                    referrer: _getReferrer(),
-                    lang: window.navigator.language,
-                    screen: `${window.screen.width}x${window.screen.height}`,
-                    metadata: { title },
-                };
-                _send(POST_EVENT_PATH, payload);
-                clearTimeout(t);
-            }, 100);
+
+    addEventListener('popstate', () => page());
+
+    if (document.visibilityState !== 'visible') {
+        document.addEventListener('visibilitychange', () => {
+            if (!lastPage && document.visibilityState === 'visible') page();
+        });
+    } else {
+        page();
+    }
+}
+
+function _registerCustomEventListeners() {
+    document.addEventListener('click', (event) => {
+        let targetElement = event.target as HTMLElement | null;
+        if (
+            targetElement?.tagName === 'SELECT' ||
+            targetElement?.tagName === 'TEXTAREA' ||
+            (targetElement?.tagName === 'INPUT' &&
+                !['button', 'submit'].includes(
+                    targetElement.getAttribute('type') || '',
+                ))
+        ) {
+            return;
         }
-    };
-    window.history.pushState = hook(window.history, 'pushState', handlePush);
-    window.history.replaceState = hook(
-        window.history,
-        'replaceState',
-        handlePush,
-    );
-};
-const _getReferrer = () => {
-    return !window.document.referrer.includes(window.location.hostname)
-        ? window.document.referrer
+        while (
+            targetElement &&
+            !targetElement?.hasAttribute('data-peasy-event')
+        ) {
+            targetElement = targetElement.parentElement;
+        }
+        if (!targetElement) return;
+
+        const name = targetElement.getAttribute('data-peasy-event');
+        if (!name) return;
+
+        const data: Record<string, unknown> = {};
+
+        for (const attr of Array.from(targetElement.attributes)) {
+            if (attr.name.startsWith('data-peasy-event-') && attr.value) {
+                data[attr.name.slice('data-peasy-event-'.length)] = attr.value;
+            }
+        }
+
+        if (targetElement.tagName === 'FORM') {
+            const form = targetElement as HTMLFormElement;
+            const inputs = Array.from(form.elements) as HTMLInputElement[];
+            form.action && (data['$action url'] = form.action);
+            for (const input of inputs) {
+                if (input.type == 'password') continue;
+                if (!input.name) continue;
+                if (input.hasAttribute('data-peasy-ignore')) continue;
+
+                if (input.type === 'checkbox' || input.type === 'radio') {
+                    data[input.name] = input.checked;
+                    continue;
+                }
+
+                if (input.value) {
+                    data[input.name] = input.value;
+                }
+            }
+        }
+
+        track(name, data);
+    });
+}
+
+function _isTrackingDisabled() {
+    return localStorage.getItem(DO_NOT_TRACK_LOCALSTORAGE_KEY) === 'true';
+}
+
+function _getReferrer() {
+    return !document.referrer.includes(location.hostname)
+        ? document.referrer
         : '';
-};
+}
