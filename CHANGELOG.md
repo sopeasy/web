@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 2.0.0
+
+### Major Changes
+
+- 1872d2a: refactor web package to mirror script, change ingestHost to ingestUrl
+
 ## 1.7.2
 
 ### Patch Changes
