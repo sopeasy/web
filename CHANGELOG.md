@@ -1,5 +1,11 @@
 # @sopeasy/web
 
+## 2.0.1
+
+### Patch Changes
+
+- 96312d5: add better error handling
+
 ## 2.0.0
 
 ### Major Changes
