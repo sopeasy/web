@@ -55,7 +55,7 @@ let config = {
     regexMaskPatterns: [] as RegExp[],
     skipPatterns: [] as RegExp[],
     autoPageView: true,
-    ingestUrl: '',
+    ingestUrl: new URL('https://api.peasy.so/v1/ingest/'),
 };
 let initialized = false;
 let preInitQueue: (
@@ -82,16 +82,50 @@ export const init = (params: PeasyOptions) => {
 
     config.websiteId = params.websiteId;
     config.maskPatterns = params.maskPatterns || [];
-    config.regexMaskPatterns =
-        config.maskPatterns?.map((e) => {
-            return new RegExp(`^${_normalizeUrl(e).replace(/\*/g, '[^/]+')}$`);
-        }) ?? [];
-    config.skipPatterns =
-        params.skipPatterns?.map((e) => {
-            return new RegExp(`^${_normalizeUrl(e).replace(/\*/g, '[^/]+')}$`);
-        }) ?? [];
     config.autoPageView = params.autoPageView ?? true;
-    config.ingestUrl = params.ingestUrl ?? 'https://api.peasy.so/v1/ingest/';
+
+    try {
+        config.regexMaskPatterns =
+            config.maskPatterns?.map((e) => {
+                return new RegExp(
+                    `^${_normalizeUrl(e).replace(/\*/g, '[^/]+')}$`,
+                );
+            }) ?? [];
+    } catch (error) {
+        console.error(
+            '[peasy.js] warn: one or more of your mask patterns have an invalid format.  using default.',
+            error,
+        );
+        config.maskPatterns = [];
+        config.regexMaskPatterns = [];
+    }
+
+    try {
+        config.skipPatterns =
+            params.skipPatterns?.map((e) => {
+                return new RegExp(
+                    `^${_normalizeUrl(e).replace(/\*/g, '[^/]+')}$`,
+                );
+            }) ?? [];
+    } catch (error) {
+        console.error(
+            '[peasy.js] warn: one or more of your skip patterns have an invalid format.  using default.',
+            error,
+        );
+        config.skipPatterns = [];
+    }
+
+    if (params.ingestUrl) {
+        try {
+            config.ingestUrl = new URL(params.ingestUrl);
+        } catch (error) {
+            console.error(
+                '[peasy.js] warn: ingestUrl is invalid. using default.',
+                error,
+            );
+            config.ingestUrl = new URL('https://api.peasy.so/v1/ingest/');
+        }
+    }
 
     initialized = true;
 
@@ -239,7 +273,10 @@ function _send(path: string, payload: Record<string, unknown>) {
             }
         });
     } catch (e) {
-        console.error('[peasy.js] Error:', e);
+        console.error(
+            '[peasy.js] error: an error occured whilst sending an event',
+            e,
+        );
     }
 }
 
