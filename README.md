@@ -2,7 +2,7 @@
 
 peasy is a lightweight, privacy-focused analytics tool for websites and products. this package provides the client-side JavaScript/TypeScript library for integrating peasy analytics into your web applications.
 
-## Installation
+## installation
 
 ```bash
 npm install @sopeasy/web
@@ -12,7 +12,7 @@ pnpm add @sopeasy/web
 yarn add @sopeasy/web
 ```
 
-## Quick Start
+## quick start
 
 ```javascript
 import * as peasy from '@sopeasy/web';
@@ -29,9 +29,9 @@ peasy.init({
 // that's it! Page views will be tracked automatically
 ```
 
-## Configuration
+## configuration
 
-The `init` function accepts the following configuration options:
+the `init` function accepts the following configuration options:
 
 ```typescript
 type Config = {
@@ -52,7 +52,7 @@ type Config = {
 };
 ```
 
-## Usage
+## usage
 
 ### track custom events
 
@@ -128,6 +128,6 @@ track element clicks with custom metadata:
 </button>
 ```
 
-## License
+## license
 
 MIT License - see [LICENSE](LICENSE) for details
